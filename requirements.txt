@@ -1,0 +1,2 @@
+backtrader==1.9.59.122
+pkg-resources==0.0.0
