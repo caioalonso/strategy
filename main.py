@@ -4,11 +4,11 @@ Usage:
   main.py FILE
   main.py -h --help
 """
-from docopt import docopt
-import sys
-import datetime
-import backtrader as bt
 import os
+import sys
+from docopt import docopt
+import backtrader as bt
+from strategy import TestStrategy
 
 
 def main(argv):
@@ -20,6 +20,8 @@ def main(argv):
     return
 
   cerebro = bt.Cerebro()
+
+  cerebro.addstrategy(TestStrategy)
   data = bt.feeds.GenericCSVData(
     dataname=sys.argv[1],
     dtformat='%Y-%m-%d %H:%M:%S.%f',
@@ -33,6 +35,9 @@ def main(argv):
   data = cerebro.resampledata(data, timeframe=bt.TimeFrame.Minutes)
   cerebro.adddata(data)
   cerebro.broker.setcash(10000)
+  cerebro.addsizer(bt.sizers.FixedSize, stake=10)
+  cerebro.broker.setcommission(commission=0.001)
+  cerebro.broker.setcommission(commission=0.001)
   print('Starting Portfolio Value: %.2f' % cerebro.broker.getvalue())
   cerebro.run()
   print('Final Portfolio Value: %.2f' % cerebro.broker.getvalue())
