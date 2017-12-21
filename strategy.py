@@ -1,14 +1,18 @@
+import datetime
 import backtrader as bt
 
 
-# Create a Stratey
 class TestStrategy(bt.Strategy):
-    params = (('exitbars', 5), )
+    params = (
+        ('maperiod', 15),
+        ('printlog', False),
+    )
 
-    def log(self, txt, dt=None):
+    def log(self, txt, dt=None, doprint=False):
         ''' Logging function fot this strategy'''
-        dt = dt or self.datas[0].datetime.date(0)
-        print('%s, %s' % (dt.isoformat(), txt))
+        if self.params.printlog or doprint:
+            dt = dt or self.datas[0].datetime.date(0)
+            print('%s, %s' % (dt.isoformat(), txt))
 
     def __init__(self):
         # Keep a reference to the "close" line in the data[0] dataseries
@@ -18,6 +22,10 @@ class TestStrategy(bt.Strategy):
         self.order = None
         self.buyprice = None
         self.buycomm = None
+
+        # Add a MovingAverageSimple indicator
+        self.sma = bt.indicators.SimpleMovingAverage(
+            self.datas[0], period=self.params.maperiod)
 
     def notify_order(self, order):
         if order.status in [order.Submitted, order.Accepted]:
@@ -44,6 +52,7 @@ class TestStrategy(bt.Strategy):
         elif order.status in [order.Canceled, order.Margin, order.Rejected]:
             self.log('Order Canceled/Margin/Rejected')
 
+        # Write down: no pending order
         self.order = None
 
     def notify_trade(self, trade):
@@ -54,6 +63,9 @@ class TestStrategy(bt.Strategy):
                                                              trade.pnlcomm))
 
     def next(self):
+        # Simply log the closing price of the series from the reference
+        self.log('Close, %.2f' % self.dataclose[0])
+
         # Check if an order is pending ... if yes, we cannot send a 2nd one
         if self.order:
             return
@@ -62,24 +74,26 @@ class TestStrategy(bt.Strategy):
         if not self.position:
 
             # Not yet ... we MIGHT BUY if ...
-            if self.dataclose[0] < self.dataclose[-1]:
-                # current close less than previous close
+            if self.dataclose[0] > self.sma[0]:
 
-                if self.dataclose[-1] < self.dataclose[-2]:
-                    # previous close less than the previous close
+                # BUY, BUY, BUY!!! (with all possible default parameters)
+                self.log('BUY CREATE, %.2f' % self.dataclose[0])
 
-                    # BUY, BUY, BUY!!! (with default parameters)
-                    self.log('BUY CREATE, %.2f' % self.dataclose[0])
-
-                    # Keep track of the created order to avoid a 2nd order
-                    self.order = self.buy()
+                # Keep track of the created order to avoid a 2nd order
+                self.order = self.buy()
 
         else:
 
-            # Already in the market ... we might sell
-            if len(self) >= (self.bar_executed + self.params.exitbars):
+            if self.dataclose[0] < self.sma[0]:
                 # SELL, SELL, SELL!!! (with all possible default parameters)
                 self.log('SELL CREATE, %.2f' % self.dataclose[0])
 
                 # Keep track of the created order to avoid a 2nd order
                 self.order = self.sell()
+
+    def stop(self):
+        return
+        self.log(
+            '(MA Period %2d) Ending Value %.2f' % (self.params.maperiod,
+                                                   self.broker.getvalue()),
+            doprint=True)

@@ -8,7 +8,7 @@ import os
 import sys
 from docopt import docopt
 import backtrader as bt
-from strategy import TestStrategy
+import strategy
 
 
 def main(argv):
@@ -21,26 +21,31 @@ def main(argv):
 
     cerebro = bt.Cerebro()
 
-    cerebro.addstrategy(TestStrategy)
+    cerebro.addstrategy(strategy.TestStrategy)
+    # Load the Data
     data = bt.feeds.GenericCSVData(
         dataname=sys.argv[1],
         dtformat='%Y-%m-%d %H:%M:%S.%f',
         timeframe=bt.TimeFrame.Ticks,
-        open=1,
-        high=1,
-        low=1,
-        close=1,
-        volume=-1,
+        open=2,
+        high=2,
+        low=2,
+        close=2,
+        volume=4,
         openinterest=-1)
-    data = cerebro.resampledata(data, timeframe=bt.TimeFrame.Minutes)
-    cerebro.adddata(data)
-    cerebro.broker.setcash(10000)
-    cerebro.addsizer(bt.sizers.FixedSize, stake=10)
-    cerebro.broker.setcommission(commission=0.001)
-    cerebro.broker.setcommission(commission=0.001)
+
+    # First add the original data - smaller timeframe
+    cerebro.replaydata(data, timeframe=bt.TimeFrame.Minutes, compression=1)
+
+    #cerebro.resampledata(data, timeframe=bt.TimeFrame.Minutes, compression=False)
+    #cerebro.adddata(data)
+    cerebro.broker.setcash(1000)
+    cerebro.addsizer(bt.sizers.FixedSize, stake=100)
+    cerebro.broker.setcommission(commission=0.0)
     print('Starting Portfolio Value: %.2f' % cerebro.broker.getvalue())
     cerebro.run()
     print('Final Portfolio Value: %.2f' % cerebro.broker.getvalue())
+    #cerebro.plot()
 
 
 if __name__ == "__main__":
