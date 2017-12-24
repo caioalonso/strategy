@@ -45,7 +45,6 @@ def main(argv):
     print('Starting Portfolio Value: %.2f' % cerebro.broker.getvalue())
     cerebro.run()
     print('Final Portfolio Value: %.2f' % cerebro.broker.getvalue())
-    #cerebro.plot()
 
 
 if __name__ == "__main__":
