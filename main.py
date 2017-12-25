@@ -20,7 +20,7 @@ def main(argv):
         return
 
     cerebro = bt.Cerebro()
-    cerebro.addstrategy(strategy.TestStrategy, printlog=False)
+    cerebro.addstrategy(strategy.TestStrategy, printlog=True)
     data = bt.feeds.GenericCSVData(
         dataname=sys.argv[1],
         dtformat='%Y-%m-%d %H:%M:%S.%f',

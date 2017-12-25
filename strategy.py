@@ -7,6 +7,8 @@ class TestStrategy(bt.Strategy):
         ('sma1', 7),
         ('sma2', 26),
         ('ema', 50),
+        ('sl', 0.001),
+        ('tp', 0.002),
         ('printlog', False)
     )
 
@@ -27,8 +29,8 @@ class TestStrategy(bt.Strategy):
         if not self.position:
             if not self.buysig[-1] and self.buysig[0]:
                 close = self.dataclose[0]
-                sl = close - 0.0010
-                tp = close + 0.0020
+                sl = close - self.params.sl
+                tp = close + self.params.tp
                 self.order = self.buy_bracket(stopprice=sl, limitprice=tp)
                 self.log('BUY CREATE, %.5f' % self.dataclose[0])
 
@@ -40,20 +42,16 @@ class TestStrategy(bt.Strategy):
         # Attention: broker could reject order if not enough cash
         if order.status in [order.Completed]:
             if order.isbuy():
-                self.log(
-                    'BUY EXECUTED, Price: %.5f, Cost: %.5f, Comm %.5f' %
-                    (order.executed.price,
+                direction = 'BUY'
+            else:
+                direction = 'SELL'
+                
+            self.log('%s %s EXECUTED, Price: %.5f, Cost: %.5f, Comm %.5f' %
+                    (direction,
+                     order.getordername(),
+                     order.executed.price,
                      order.executed.value,
                      order.executed.comm))
-
-                self.buyprice = order.executed.price
-                self.buycomm = order.executed.comm
-            else:  # Sell
-                self.log('SELL EXECUTED, Price: %.5f, Cost: %.5f, Comm %.5f' %
-                         (order.executed.price,
-                          order.executed.value,
-                          order.executed.comm))
-
             self.bar_executed = len(self)
         elif order.status in [order.Canceled]:
             self.log('Order Canceled or Client-side SL/TP')
