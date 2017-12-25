@@ -20,9 +20,7 @@ def main(argv):
         return
 
     cerebro = bt.Cerebro()
-
-    cerebro.addstrategy(strategy.TestStrategy)
-    # Load the Data
+    cerebro.addstrategy(strategy.TestStrategy, printlog=False)
     data = bt.feeds.GenericCSVData(
         dataname=sys.argv[1],
         dtformat='%Y-%m-%d %H:%M:%S.%f',
@@ -33,18 +31,14 @@ def main(argv):
         close=2,
         volume=4,
         openinterest=-1)
-
-    # First add the original data - smaller timeframe
     cerebro.replaydata(data, timeframe=bt.TimeFrame.Minutes, compression=1)
-
-    #cerebro.resampledata(data, timeframe=bt.TimeFrame.Minutes, compression=False)
-    #cerebro.adddata(data)
-    cerebro.broker.setcash(1000)
-    cerebro.addsizer(bt.sizers.FixedSize, stake=100)
+    cerebro.broker.setcash(10000)
+    cerebro.addsizer(bt.sizers.FixedSize, stake=5000)
     cerebro.broker.setcommission(commission=0.0)
     print('Starting Portfolio Value: %.2f' % cerebro.broker.getvalue())
     cerebro.run()
     print('Final Portfolio Value: %.2f' % cerebro.broker.getvalue())
+    #cerebro.plot()
 
 
 if __name__ == "__main__":

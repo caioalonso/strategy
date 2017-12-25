@@ -4,53 +4,61 @@ import backtrader as bt
 
 class TestStrategy(bt.Strategy):
     params = (
-        ('maperiod', 15),
-        ('printlog', False),
+        ('sma1', 7),
+        ('sma2', 26),
+        ('ema', 50),
+        ('printlog', False)
     )
 
-    def log(self, txt, dt=None, doprint=False):
-        ''' Logging function fot this strategy'''
-        if self.params.printlog or doprint:
-            dt = dt or self.datas[0].datetime.date(0)
-            print('%s, %s' % (dt.isoformat(), txt))
-
     def __init__(self):
-        # Keep a reference to the "close" line in the data[0] dataseries
         self.dataclose = self.datas[0].close
-
-        # To keep track of pending orders and buy price/commission
         self.order = None
         self.buyprice = None
         self.buycomm = None
 
-        # Add a MovingAverageSimple indicator
-        self.sma = bt.indicators.SimpleMovingAverage(
-            self.datas[0], period=self.params.maperiod)
+        self.sma1 = bt.indicators.SMA(self.datas[0], period=self.params.sma1)
+        self.sma2 = bt.indicators.SMA(self.datas[0], period=self.params.sma2)
+        self.ema  = bt.indicators.EMA(self.datas[0], period=self.params.ema)
+        self.buysig = bt.And(self.sma1 > self.sma2, self.sma1 > self.ema)
+
+    def next(self):
+        if self.order:
+            return
+        if not self.position:
+            if not self.buysig[-1] and self.buysig[0]:
+                close = self.dataclose[0]
+                sl = close - 0.0010
+                tp = close + 0.0020
+                self.order = self.buy_bracket(stopprice=sl, limitprice=tp)
+                self.log('BUY CREATE, %.5f' % self.dataclose[0])
 
     def notify_order(self, order):
         if order.status in [order.Submitted, order.Accepted]:
-            # Buy/Sell order submitted/accepted to/by broker - Nothing to do
             return
 
         # Check if an order has been completed
-        # Attention: broker could reject order if not enougth cash
+        # Attention: broker could reject order if not enough cash
         if order.status in [order.Completed]:
             if order.isbuy():
-                self.log('BUY EXECUTED, Price: %.2f, Cost: %.2f, Comm %.2f' %
-                         (order.executed.price, order.executed.value,
-                          order.executed.comm))
+                self.log(
+                    'BUY EXECUTED, Price: %.5f, Cost: %.5f, Comm %.5f' %
+                    (order.executed.price,
+                     order.executed.value,
+                     order.executed.comm))
 
                 self.buyprice = order.executed.price
                 self.buycomm = order.executed.comm
             else:  # Sell
-                self.log('SELL EXECUTED, Price: %.2f, Cost: %.2f, Comm %.2f' %
-                         (order.executed.price, order.executed.value,
+                self.log('SELL EXECUTED, Price: %.5f, Cost: %.5f, Comm %.5f' %
+                         (order.executed.price,
+                          order.executed.value,
                           order.executed.comm))
 
             self.bar_executed = len(self)
-
-        elif order.status in [order.Canceled, order.Margin, order.Rejected]:
-            self.log('Order Canceled/Margin/Rejected')
+        elif order.status in [order.Canceled]:
+            self.log('Order Canceled or Client-side SL/TP')
+        elif order.status in [order.Margin, order.Rejected]:
+            self.log('Margin/Rejected')
 
         # Write down: no pending order
         self.order = None
@@ -59,41 +67,11 @@ class TestStrategy(bt.Strategy):
         if not trade.isclosed:
             return
 
-        self.log('OPERATION PROFIT, GROSS %.2f, NET %.2f' % (trade.pnl,
-                                                             trade.pnlcomm))
+        self.log('OPERATION PROFIT, GROSS %.5f, NET %.5f' %
+                 (trade.pnl, trade.pnlcomm))
 
-    def next(self):
-        # Simply log the closing price of the series from the reference
-        self.log('Close, %.2f' % self.dataclose[0])
-
-        # Check if an order is pending ... if yes, we cannot send a 2nd one
-        if self.order:
-            return
-
-        # Check if we are in the market
-        if not self.position:
-
-            # Not yet ... we MIGHT BUY if ...
-            if self.dataclose[0] > self.sma[0]:
-
-                # BUY, BUY, BUY!!! (with all possible default parameters)
-                self.log('BUY CREATE, %.2f' % self.dataclose[0])
-
-                # Keep track of the created order to avoid a 2nd order
-                self.order = self.buy()
-
-        else:
-
-            if self.dataclose[0] < self.sma[0]:
-                # SELL, SELL, SELL!!! (with all possible default parameters)
-                self.log('SELL CREATE, %.2f' % self.dataclose[0])
-
-                # Keep track of the created order to avoid a 2nd order
-                self.order = self.sell()
-
-    def stop(self):
-        return
-        self.log(
-            '(MA Period %2d) Ending Value %.2f' % (self.params.maperiod,
-                                                   self.broker.getvalue()),
-            doprint=True)
+    def log(self, txt, dt=None, doprint=False):
+        ''' Logging function fot this strategy'''
+        if self.params.printlog or doprint:
+            dt = dt or self.datas[0].datetime.datetime()
+            print('%s, %s' % (dt.isoformat(), txt))
